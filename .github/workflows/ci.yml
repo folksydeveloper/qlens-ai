@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Generate Prisma client
+        run: pnpm db:generate
+        env:
+          DATABASE_URL: file:./dev.db
+
+      - name: Lint
+        run: pnpm lint
+        continue-on-error: false
+
+      - name: Build
+        run: pnpm build
+        env:
+          DATABASE_URL: file:./dev.db
+          JWT_SECRET: ci-jwt-secret
+          JWT_REFRESH_SECRET: ci-refresh-secret
+          API_KEY_HASH_SECRET: ci-api-key-hash-secret
+          API_SERVICE_SECRET: ci-service-secret
+          INTERNAL_MODEL_BASE_URL: http://127.0.0.1:1930
+          INTERNAL_MODEL_API_KEY: ci-internal-model-key
