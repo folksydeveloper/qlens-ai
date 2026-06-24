@@ -1,74 +1,37 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import axios from 'axios';
 
 @Injectable()
 export class QuotaService {
-  private readonly apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:3001';
-  private readonly apiSecret = process.env.API_SERVICE_SECRET || 'internal-secret';
+  private readonly logger = new Logger(QuotaService.name);
+  private readonly apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:3001/api';
+  private readonly serviceToken = process.env.API_SERVICE_SECRET || (process.env.NODE_ENV === 'production' ? '' : 'dev-service-token');
 
-  async validateApiKey(key: string): Promise<{ valid: boolean; userId?: string; subscription?: any } | null> {
+  async checkQuota(userId: string, estimatedTokens = 1): Promise<{ allowed: boolean; remaining: number; source?: string; reason?: string }> {
+    if (!this.serviceToken) return { allowed: false, remaining: 0, reason: 'service_auth_missing' };
     try {
-      const res = await axios.post(`${this.apiBaseUrl}/api-keys/validate`, {
-        apiKey: key,
-      }, {
-        headers: { 'X-Service-Secret': this.apiSecret },
+      const res = await axios.post(`${this.apiBaseUrl}/usage/check-quota`, { userId, tokens: estimatedTokens }, {
+        headers: { 'X-Service-Secret': this.serviceToken },
         timeout: 5000,
       });
       return res.data;
-    } catch {
-      return null;
+    } catch (error: any) {
+      this.logger.error(`Quota check failed closed: ${error?.message || 'unknown error'}`);
+      return { allowed: false, remaining: 0, reason: 'quota_service_unavailable' };
     }
   }
 
-  async checkQuota(userId: string): Promise<{ allowed: boolean; remaining: number; source?: string }> {
+  async deductQuota(userId: string, tokens: number): Promise<{ success: boolean; remaining: number; source?: string }> {
+    if (!this.serviceToken) return { success: false, remaining: 0 };
     try {
-      const res = await axios.get(`${this.apiBaseUrl}/usage/check-quota?userId=${userId}`, {
-        headers: { 'X-Service-Secret': this.apiSecret },
+      const res = await axios.post(`${this.apiBaseUrl}/usage/deduct-quota`, { userId, tokens }, {
+        headers: { 'X-Service-Secret': this.serviceToken },
         timeout: 5000,
       });
       return res.data;
-    } catch {
-      return { allowed: true, remaining: -1 };
-    }
-  }
-
-  async deductQuota(userId: string, tokens: number): Promise<{ success: boolean; remaining: number }> {
-    try {
-      const res = await axios.post(`${this.apiBaseUrl}/usage/deduct-quota`, {
-        userId,
-        tokens,
-      }, {
-        headers: { 'X-Service-Secret': this.apiSecret },
-        timeout: 5000,
-      });
-      return res.data;
-    } catch {
+    } catch (error: any) {
+      this.logger.error(`Quota deduction failed: ${error?.message || 'unknown error'}`);
       return { success: false, remaining: 0 };
-    }
-  }
-
-  async logRequest(data: {
-    requestId: string;
-    userId?: string;
-    apiKeyId?: string;
-    model?: string;
-    endpoint: string;
-    method: string;
-    statusCode: number;
-    inputTokens?: number;
-    outputTokens?: number;
-    totalTokens?: number;
-    latency: number;
-    errorCode?: string;
-    errorMessage?: string;
-  }): Promise<void> {
-    try {
-      await axios.post(`${this.apiBaseUrl}/usage/log-request`, data, {
-        headers: { 'X-Service-Secret': this.apiSecret },
-        timeout: 5000,
-      });
-    } catch {
-      // Silent fail for logging
     }
   }
 
@@ -77,20 +40,24 @@ export class QuotaService {
     apiKeyId: string;
     requestId: string;
     model: string;
+    compatibilityMode: 'OPENAI' | 'ANTHROPIC';
     inputTokens: number;
     outputTokens: number;
     totalTokens: number;
     deductionSource: string;
     cost?: number;
     latency: number;
+    status?: string;
+    errorCode?: string;
   }): Promise<void> {
+    if (!this.serviceToken) return;
     try {
       await axios.post(`${this.apiBaseUrl}/usage/log-usage`, data, {
-        headers: { 'X-Service-Secret': this.apiSecret },
+        headers: { 'X-Service-Secret': this.serviceToken },
         timeout: 5000,
       });
-    } catch {
-      // Silent fail
+    } catch (error: any) {
+      this.logger.error(`Usage log write failed: ${error?.message || 'unknown error'}`);
     }
   }
 
@@ -99,6 +66,7 @@ export class QuotaService {
     userId?: string;
     apiKeyId?: string;
     model?: string;
+    compatibilityMode?: 'OPENAI' | 'ANTHROPIC';
     endpoint: string;
     method: string;
     statusCode: number;
@@ -109,13 +77,14 @@ export class QuotaService {
     errorCode?: string;
     errorMessage?: string;
   }): Promise<void> {
+    if (!this.serviceToken) return;
     try {
       await axios.post(`${this.apiBaseUrl}/usage/log-request`, data, {
-        headers: { 'X-Service-Secret': this.apiSecret },
+        headers: { 'X-Service-Secret': this.serviceToken },
         timeout: 5000,
       });
-    } catch {
-      // Silent fail
+    } catch (error: any) {
+      this.logger.error(`Request log write failed: ${error?.message || 'unknown error'}`);
     }
   }
 }
