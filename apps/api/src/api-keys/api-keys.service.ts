@@ -41,14 +41,13 @@ export class ApiKeysService {
         keyPrefix: displayOnce.slice(0, 20),
         environment: environment.toUpperCase(),
         allowedModels: dto.allowedModels ? JSON.stringify(Array.isArray(dto.allowedModels) ? dto.allowedModels : String(dto.allowedModels).split(',').map((v) => v.trim()).filter(Boolean)) : '[]',
-        allowedProtocols: dto.allowedProtocols ? JSON.stringify(Array.isArray(dto.allowedProtocols) ? dto.allowedProtocols : String(dto.allowedProtocols).split(',').map((v) => v.trim()).filter(Boolean)) : '[]',
         dailyLimit: dto.dailyTokenLimit ?? dto.dailyLimit ?? null,
         monthlyLimit: dto.monthlyTokenLimit ?? dto.monthlyLimit ?? null,
         expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
         user: { connect: { id: userId } },
-      } as any,
+      },
     });
-    const { keyHash, ...safe } = saved as any;
+    const { keyHash, ...safe } = saved;
     return { message: 'API key created. Copy it now.', key: displayOnce, apiKey: safe };
   }
 
@@ -56,7 +55,7 @@ export class ApiKeysService {
     const existing = await this.prisma.apiKey.findFirst({ where: { id: keyId, userId } });
     if (!existing) throw new NotFoundException('API key not found');
     const updated = await this.prisma.apiKey.update({ where: { id: keyId }, data: { name: dto.name ?? existing.name } });
-    const { keyHash, ...safe } = updated as any;
+    const { keyHash, ...safe } = updated;
     return { message: 'API key updated', apiKey: safe };
   }
 
@@ -77,8 +76,8 @@ export class ApiKeysService {
     if (!user.emailVerified) throw new ForbiddenException('Verify your email');
     if (user.status !== 'ACTIVE') throw new ForbiddenException('Account restricted');
     await this.prisma.apiKey.update({ where: { id: row.id }, data: { lastUsedAt: new Date() } });
-    const { keyHash, ...safeKey } = row as any;
-    const { passwordHash, ...safeUser } = user as any;
+    const { keyHash, ...safeKey } = row;
+    const { passwordHash, ...safeUser } = user;
     return { valid: true, userId: user.id, apiKey: safeKey, user: safeUser, subscription: user.subscriptions?.[0] || null };
   }
 }
