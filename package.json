@@ -1,0 +1,21 @@
+{
+  "name": "qlens-ai",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev": "pnpm --parallel -r dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "db:generate": "pnpm --filter db generate",
+    "db:migrate": "pnpm --filter db migrate dev",
+    "db:seed": "pnpm --filter db db:seed",
+    "db:studio": "pnpm --filter db studio",
+    "dev:web": "pnpm --filter web dev",
+    "dev:api": "pnpm --filter api start:dev",
+    "dev:gateway": "pnpm --filter gateway start:dev"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}
