@@ -3,32 +3,47 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 15, 23, 42;
-  --background-start-rgb: 248, 250, 252;
-  --background-end-rgb: 255, 255, 255;
+  --bg-primary: #0f1117;
+  --bg-secondary: #1a1d2e;
+  --bg-card: #1e2235;
+  --bg-hover: #252a3a;
+  --text-primary: #e8eaed;
+  --text-secondary: #9aa0b0;
+  --border-color: #2d3148;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --error: #ef4444;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-@layer components {
-  .btn-primary {
-    @apply px-4 py-2 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition-colors font-medium;
-  }
-  .btn-secondary {
-    @apply px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium;
-  }
-  .card {
-    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-6;
-  }
-  .input {
-    @apply w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-500 focus:border-transparent outline-none;
-  }
+.card {
+  @apply bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-6;
 }
+
+.btn-primary {
+  @apply bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-4 py-2 rounded-lg transition-colors;
+}
+
+.btn-secondary {
+  @apply bg-[var(--bg-hover)] hover:bg-[var(--border-color)] text-[var(--text-primary)] font-medium px-4 py-2 rounded-lg transition-colors border border-[var(--border-color)];
+}
+
+.input-field {
+  @apply bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg px-4 py-2.5 text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] w-full;
+}
+
+.badge {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+}
+
+.badge-success { @apply bg-green-900/30 text-green-400; }
+.badge-warning { @apply bg-yellow-900/30 text-yellow-400; }
+.badge-error { @apply bg-red-900/30 text-red-400; }
+.badge-info { @apply bg-blue-900/30 text-blue-400; }

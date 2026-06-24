@@ -14,6 +14,7 @@ interface AuthState {
   isAuthenticated: boolean;
   setUser: (user: User | null) => void;
   setTokens: (access: string, refresh: string) => void;
+  setAuth: (user: User, token: string) => void;
   logout: () => void;
 }
 
@@ -26,7 +27,14 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       setUser: (user) => set({ user, isAuthenticated: !!user }),
       setTokens: (access, refresh) => set({ accessToken: access, refreshToken: refresh, isAuthenticated: true }),
-      logout: () => set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false }),
+      setAuth: (user, token) => {
+        localStorage.setItem('token', token);
+        set({ user, accessToken: token, isAuthenticated: true });
+      },
+      logout: () => {
+        localStorage.removeItem('token');
+        set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false });
+      },
     }),
     { name: 'qlens-auth' },
   ),

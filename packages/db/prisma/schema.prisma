@@ -1,3 +1,6 @@
+// QLens AI — Prisma Schema (EXECUTION-PROMPT.md Phase 2)
+// Modified for SQLite (dev) instead of PostgreSQL
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,20 +10,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ─── Enums ────────────────────────────────────────────────────────────────────
+// ===================== ENUMS =====================
+// SQLite doesn't support enums — we use String with comments
 
-// ─── Models ───────────────────────────────────────────────────────────────────
+// ===================== USERS =====================
 
 model User {
-  id            String     @id @default(cuid())
-  email         String     @unique
-  emailVerified Boolean    @default(false)
-  passwordHash  String
-  role          String   @default("USER")
-  status        String @default("ACTIVE")
-  riskScore     Int        @default(0)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  id            String     @id @default(cuid()) @map("id")
+  email         String     @unique @map("email")
+  emailVerified Boolean    @default(false) @map("email_verified")
+  passwordHash  String     @map("password_hash")
+  role          String     @default("USER") @map("role") // USER, ADMIN, MODERATOR
+  status        String     @default("ACTIVE") @map("status") // ACTIVE, RESTRICTED, SUSPENDED, BANNED
+  riskScore     Int        @default(0) @map("risk_score")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
 
   profile       UserProfile?
   apiKeys       ApiKey[]
@@ -28,300 +32,321 @@ model User {
   requestLogs   RequestLog[]
   payments      Payment[]
   topUpLedger   TopUpLedger[]
-  auditLogs     AuditLog[] @relation("UserAuditLogs")
+  auditLogs     AuditLog[]  @relation("UserAuditLogs")
   sessions      Session[]
   subscriptions Subscription[]
 
   @@index([email])
-  @@index([role])
   @@index([status])
-  @@index([createdAt])
+  @@index([riskScore])
+  @@map("users")
 }
 
 model UserProfile {
-  id            String  @id @default(cuid())
-  userId        String  @unique
-  user          User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  firstName     String?
-  lastName      String?
-  timezone      String  @default("Asia/Jakarta")
-  twoFASecret   String?
-  twoFAEnabled  Boolean @default(false)
+  id           String   @id @default(cuid()) @map("id")
+  userId       String   @unique @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName    String?  @map("first_name")
+  lastName     String?  @map("last_name")
+  timezone     String   @default("Asia/Jakarta") @map("timezone")
+  twoFASecret  String?  @map("two_fa_secret")
+  twoFAEnabled Boolean  @default(false) @map("two_fa_enabled")
 
   @@index([userId])
+  @@map("user_profiles")
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  userId       String
+  id           String   @id @default(cuid()) @map("id")
+  userId       String   @map("user_id")
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  refreshToken String   @unique
-  expiresAt    DateTime
-  ipHash       String?
-  userAgent    String?
-  createdAt    DateTime @default(now())
+  refreshToken String   @unique @map("refresh_token")
+  expiresAt    DateTime @map("expires_at")
+  ipHash       String?  @map("ip_hash")
+  userAgent    String?  @map("user_agent")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   @@index([userId])
   @@index([refreshToken])
-  @@index([expiresAt])
+  @@map("sessions")
 }
 
-model ApiKey {
-  id            String        @id @default(cuid())
-  userId        String
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name          String        @default("Unnamed Key")
-  keyPrefix     String
-  keyHash       String        @unique
-  environment   String        @default("live")
-  status        String  @default("ACTIVE")
-  dailyLimit    Int?
-  monthlyLimit  Int?
-  allowedModels String
-  expiresAt     DateTime?
-  lastUsedAt    DateTime?
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+// ===================== API KEYS =====================
 
-  usageLogs     UsageLog[]
+model ApiKey {
+  id           String   @id @default(cuid()) @map("id")
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name         String   @default("Unnamed Key") @map("name")
+  keyPrefix    String   @map("key_prefix") // e.g. "qlens-sk-live_abc1"
+  keyHash      String   @unique @map("key_hash")
+  environment  String   @default("LIVE") @map("environment") // LIVE, TEST
+  status       String   @default("ACTIVE") @map("status") // ACTIVE, REVOKED, SUSPENDED
+  dailyLimit   Int?     @map("daily_limit") // null = unlimited
+  monthlyLimit Int?     @map("monthly_limit") // null = unlimited
+  allowedModels String  @default("[]") @map("allowed_models") // JSON array
+  expiresAt    DateTime? @map("expires_at")
+  lastUsedAt   DateTime? @map("last_used_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  usageLogs    UsageLog[]
 
   @@index([userId])
   @@index([keyHash])
-  @@index([keyPrefix])
-  @@index([environment])
   @@index([status])
+  @@index([keyPrefix])
+  @@map("api_keys")
 }
 
+// ===================== PLANS & BILLING =====================
+
 model Plan {
-  id             String       @id @default(cuid())
-  slug           String       @unique
-  displayName    String
-  price          Int // IDR cents
-  billingCycle   String @default("monthly")
-  dailyQuota     Int
-  monthlyQuota   Int
-  rpmLimit       Int
-  tpmLimit       Int
-  maxActiveKeys  Int          @default(1)
-  allowedModels  String
-  priority       Int          @default(0)
-  enabled        Boolean      @default(true)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id            String   @id @default(cuid()) @map("id")
+  slug          String   @unique @map("slug") // free, starter, pro, max
+  displayName   String   @map("display_name")
+  price         Int      @map("price") // IDR cents
+  billingCycle  String   @default("MONTHLY") @map("billing_cycle") // MONTHLY, YEARLY
+  dailyQuota    Int      @map("daily_quota") // tokens
+  monthlyQuota  Int      @map("monthly_quota") // tokens
+  rpmLimit      Int      @map("rpm_limit")
+  tpmLimit      Int      @map("tpm_limit")
+  maxActiveKeys Int      @default(1) @map("max_active_keys")
+  allowedModels String   @map("allowed_models") // JSON array of model slugs
+  priority      Int      @default(0) @map("priority")
+  enabled       Boolean  @default(true) @map("enabled")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
 
   subscriptions Subscription[]
 
   @@index([slug])
   @@index([enabled])
-  @@index([priority])
+  @@map("plans")
 }
 
 model Subscription {
-  id             String     @id @default(cuid())
-  userId         String     @unique
-  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  planId         String
-  plan           Plan       @relation(fields: [planId], references: [id])
-  status         String  @default("ACTIVE")
-  startDate      DateTime   @default(now())
-  endDate        DateTime?
-  dailyUsed      Int        @default(0)
-  dailyResetDate DateTime?
-  monthlyUsed    Int        @default(0)
-  monthResetDate DateTime?
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  id             String    @id @default(cuid()) @map("id")
+  userId         String    @unique @map("user_id")
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId         String    @map("plan_id")
+  plan           Plan      @relation(fields: [planId], references: [id])
+  status         String    @default("ACTIVE") @map("status") // ACTIVE, EXPIRED, CANCELLED
+  startDate      DateTime  @default(now()) @map("start_date")
+  endDate        DateTime? @map("end_date")
+  dailyUsed      Int       @default(0) @map("daily_used")
+  dailyResetDate DateTime? @map("daily_reset_date")
+  monthlyUsed    Int       @default(0) @map("monthly_used")
+  monthResetDate DateTime? @map("month_reset_date")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@index([userId])
   @@index([planId])
-  @@index([status])
+  @@map("subscriptions")
 }
 
+// ===================== TOP UP =====================
+
 model TopUpLedger {
-  id          String       @id @default(cuid())
-  userId      String
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount      Int // positive = added, negative = deducted
-  balanceAfter Int
-  source      String
-  referenceId String?
-  description String?
-  createdAt   DateTime     @default(now())
+  id           String   @id @default(cuid()) @map("id")
+  userId       String   @map("user_id")
+  user         User     @relation(fields: [userId], references: [id])
+  amount       Int      @map("amount") // positive = added, negative = deducted
+  balanceAfter Int      @map("balance_after") // running balance
+  source       String   @map("source") // purchase, manual_credit, promo_credit, usage_deduction, refund
+  referenceId  String?  @map("reference_id")
+  description  String?  @map("description")
+  createdAt    DateTime @default(now()) @map("created_at")
 
   @@index([userId])
   @@index([source])
   @@index([createdAt])
-  @@index([referenceId])
+  @@map("top_up_ledger")
 }
 
 model TopUpPackage {
-  id        String   @id @default(cuid())
-  name      String
-  price     Int // IDR cents
-  tokens    Int
-  enabled   Boolean  @default(true)
-  sortOrder Int      @default(0)
-  createdAt DateTime @default(now())
+  id        String   @id @default(cuid()) @map("id")
+  name      String   @map("name")
+  price     Int      @map("price") // IDR cents
+  tokens    Int      @map("tokens")
+  enabled   Boolean  @default(true) @map("enabled")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
 
   @@index([enabled])
   @@index([sortOrder])
+  @@map("top_up_packages")
 }
 
+// ===================== PAYMENTS =====================
+
 model Payment {
-  id             String        @id @default(cuid())
-  userId         String
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  amount         Int
-  status         String @default("PENDING")
-  provider       String        @default("midtrans")
-  providerTxId   String        @unique
-  invoiceUrl     String?
-  packageId      String?
-  tokenAmount    Int?
-  paidAt         DateTime?
-  metadata       String?
-  webhookPayload String?
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id             String   @id @default(cuid()) @map("id")
+  userId         String   @map("user_id")
+  user           User     @relation(fields: [userId], references: [id])
+  amount         Int      @map("amount") // IDR cents
+  status         String   @default("PENDING") @map("status") // PENDING, PAID, EXPIRED, FAILED, REFUNDED
+  provider       String   @default("midtrans") @map("provider")
+  providerTxId   String?  @unique @map("provider_tx_id")
+  invoiceUrl     String?  @map("invoice_url")
+  packageId      String?  @map("package_id") // top-up package
+  tokenAmount    Int?     @map("token_amount") // tokens granted
+  paidAt         DateTime? @map("paid_at")
+  metadata       String?  @map("metadata") // JSON
+  webhookPayload String?  @map("webhook_payload") // JSON
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@index([userId])
   @@index([status])
   @@index([providerTxId])
   @@index([createdAt])
+  @@map("payments")
 }
 
-model Model {
-  id                 String   @id @default(cuid())
-  publicModelId      String   @unique
-  displayName        String
-  description        String?
-  compatibilityModes String
-  internalRoute      String
-  contextLength      Int      @default(4096)
-  maxOutputTokens    Int      @default(4096)
-  category           String   @default("general")
-  costPerToken       Int      @default(0)
-  enabled            Boolean  @default(true)
-  priority           Int      @default(0)
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+// ===================== MODELS =====================
 
-  health ModelHealth?
+model Model {
+  id                 String   @id @default(cuid()) @map("id")
+  publicModelId      String   @unique @map("public_model_id") // qlens-fast, qlens-smart, etc.
+  displayName        String   @map("display_name")
+  description        String?  @map("description")
+  compatibilityModes String   @map("compatibility_modes") // JSON array: ["OPENAI","ANTHROPIC"]
+  internalRoute      String   @map("internal_route") // internal model service route
+  contextLength      Int      @default(4096) @map("context_length")
+  maxOutputTokens    Int      @default(4096) @map("max_output_tokens")
+  category           String   @default("general") @map("category")
+  costPerToken       Float    @default(0) @map("cost_per_token")
+  enabled            Boolean  @default(true) @map("enabled")
+  priority           Int      @default(0) @map("priority")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  health             ModelHealth?
 
   @@index([publicModelId])
   @@index([enabled])
   @@index([category])
-  @@index([priority])
+  @@map("models")
 }
 
 model ModelHealth {
-  id             String       @id @default(cuid())
-  modelId        String       @unique
-  model          Model        @relation(fields: [modelId], references: [id], onDelete: Cascade)
-  status         String @default("HEALTHY")
-  latencyP50     Int          @default(0)
-  latencyP95     Int          @default(0)
-  errorRate      Float        @default(0)
-  lastHeartbeat  DateTime?
-  requestsPerMin Int          @default(0)
-  tokensPerMin   Int          @default(0)
-  activeStreams   Int          @default(0)
-  queueDepth     Int          @default(0)
-  updatedAt      DateTime     @updatedAt
+  id             String   @id @default(cuid()) @map("id")
+  modelId        String   @unique @map("model_id")
+  model          Model    @relation(fields: [modelId], references: [id], onDelete: Cascade)
+  status         String   @default("HEALTHY") @map("status") // HEALTHY, DEGRADED, DOWN
+  latencyP50     Int      @default(0) @map("latency_p50")
+  latencyP95     Int      @default(0) @map("latency_p95")
+  errorRate      Float    @default(0) @map("error_rate")
+  lastHeartbeat  DateTime? @map("last_heartbeat")
+  requestsPerMin Int      @default(0) @map("requests_per_min")
+  tokensPerMin   Int      @default(0) @map("tokens_per_min")
+  activeStreams  Int      @default(0) @map("active_streams")
+  queueDepth     Int      @default(0) @map("queue_depth")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@index([modelId])
   @@index([status])
+  @@map("model_health")
 }
 
+// ===================== USAGE & REQUEST LOGS =====================
+
 model UsageLog {
-  id               String   @id @default(cuid())
-  userId           String
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  apiKeyId         String
-  apiKey           ApiKey   @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
-  requestId        String   @unique
-  model            String
-  compatibilityMode String
-  inputTokens      Int
-  outputTokens     Int
-  totalTokens      Int
-  deductionSource   String
-  cost             Int      @default(0)
-  status           String   @default("SUCCESS")
-  errorCode        String?
-  latency          Int
-  ipHash           String?
-  timestamp        DateTime @default(now())
+  id                String   @id @default(cuid()) @map("id")
+  userId            String   @map("user_id")
+  user              User     @relation(fields: [userId], references: [id])
+  apiKeyId          String   @map("api_key_id")
+  apiKey            ApiKey   @relation(fields: [apiKeyId], references: [id])
+  requestId         String   @unique @map("request_id")
+  model             String   @map("model")
+  compatibilityMode String   @map("compatibility_mode") // OPENAI or ANTHROPIC
+  inputTokens       Int      @map("input_tokens")
+  outputTokens      Int      @map("output_tokens")
+  totalTokens       Int      @map("total_tokens")
+  deductionSource   String   @map("deduction_source") // plan_daily, plan_monthly, topup_balance, manual_credit, promo_credit
+  cost              Float    @default(0) @map("cost")
+  status            String   @default("SUCCESS") @map("status")
+  errorCode         String?  @map("error_code")
+  latency           Int      @map("latency")
+  ipHash            String?  @map("ip_hash")
+  timestamp         DateTime @default(now()) @map("timestamp")
 
   @@index([userId])
   @@index([apiKeyId])
   @@index([model])
   @@index([timestamp])
+  @@index([deductionSource])
   @@index([status])
+  @@map("usage_logs")
 }
 
 model RequestLog {
-  id               String    @id @default(cuid())
-  requestId        String    @unique
-  userId           String?
-  user             User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
-  apiKeyId         String?
-  model            String?
-  compatibilityMode String?
-  endpoint         String
-  method           String
-  statusCode       Int
-  inputTokens      Int       @default(0)
-  outputTokens     Int       @default(0)
-  totalTokens      Int       @default(0)
-  latency          Int
-  ipHash           String?
-  userAgent        String?
-  errorCode        String?
-  errorMessage     String?
-  timestamp        DateTime  @default(now())
+  id                String   @id @default(cuid()) @map("id")
+  requestId         String   @unique @map("request_id")
+  userId            String?  @map("user_id")
+  user              User?    @relation(fields: [userId], references: [id])
+  apiKeyId          String?  @map("api_key_id")
+  model             String?  @map("model")
+  compatibilityMode String?  @map("compatibility_mode")
+  endpoint          String   @map("endpoint")
+  method            String   @map("method")
+  statusCode        Int      @map("status_code")
+  inputTokens       Int      @default(0) @map("input_tokens")
+  outputTokens      Int      @default(0) @map("output_tokens")
+  totalTokens       Int      @default(0) @map("total_tokens")
+  latency           Int      @map("latency")
+  ipHash            String?  @map("ip_hash")
+  userAgent         String?  @map("user_agent")
+  errorCode         String?  @map("error_code")
+  errorMessage      String?  @map("error_message")
+  timestamp         DateTime @default(now()) @map("timestamp")
 
   @@index([userId])
   @@index([apiKeyId])
-  @@index([model])
-  @@index([timestamp])
   @@index([statusCode])
-  @@index([endpoint])
+  @@index([timestamp])
+  @@index([requestId])
+  @@map("request_logs")
 }
 
-model AuditLog {
-  id         String   @id @default(cuid())
-  adminId    String?
-  userId     String?
-  user       User?    @relation("UserAuditLogs", fields: [userId], references: [id], onDelete: SetNull)
-  action     String
-  entityType String
-  entityId   String?
-  details    String?
-  ipHash     String?
-  createdAt  DateTime @default(now())
+// ===================== ADMIN & AUDIT =====================
 
-  @@index([userId])
+model AuditLog {
+  id         String   @id @default(cuid()) @map("id")
+  adminId    String?  @map("admin_id")
+  userId     String?  @map("user_id") // affected user
+  user       User?    @relation("UserAuditLogs", fields: [userId], references: [id])
+  action     String   @map("action")
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  details    String?  @map("details") // JSON
+  ipHash     String?  @map("ip_hash")
+  createdAt  DateTime @default(now()) @map("created_at")
+
   @@index([adminId])
+  @@index([userId])
   @@index([action])
-  @@index([entityType])
   @@index([createdAt])
+  @@map("audit_logs")
 }
 
 model AbuseAlert {
-  id          String    @id @default(cuid())
-  userId      String
-  alertType   String
-  severity    String    @default("MEDIUM")
-  details     String?
-  resolved    Boolean   @default(false)
-  resolvedBy  String?
-  resolvedAt  DateTime?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id         String   @id @default(cuid()) @map("id")
+  userId     String   @map("user_id")
+  alertType  String   @map("alert_type") // high_velocity, key_sharing, subnet_abuse
+  severity   String   @default("MEDIUM") @map("severity") // LOW, MEDIUM, HIGH, CRITICAL
+  details    String?  @map("details") // JSON
+  resolved   Boolean  @default(false) @map("resolved")
+  resolvedBy String?  @map("resolved_by")
+  resolvedAt DateTime? @map("resolved_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
 
   @@index([userId])
-  @@index([severity])
   @@index([resolved])
+  @@index([severity])
   @@index([createdAt])
+  @@map("abuse_alerts")
 }

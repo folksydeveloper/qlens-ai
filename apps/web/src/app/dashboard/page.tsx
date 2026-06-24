@@ -1,92 +1,75 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { api } from '@/lib/api';
+import { apiFetch } from '@/lib/api';
 
 export default function DashboardPage() {
-  const [summary, setSummary] = useState<any>(null);
-  const [keys, setKeys] = useState<any[]>([]);
+  const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([api.getUsageSummary(), api.listKeys()])
-      .then(([s, k]) => {
-        setSummary(s);
-        setKeys(k);
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false));
+    Promise.all([
+      apiFetch('/usage/summary').catch(() => null),
+      apiFetch('/users/me').catch(() => null),
+    ]).then(([usage, user]) => {
+      setStats({ usage, user });
+      setLoading(false);
+    });
   }, []);
 
-  if (loading) return <div className="text-gray-600">Loading...</div>;
+  if (loading) return <div className="text-[var(--text-secondary)]">Loading...</div>;
 
-  const stats = [
-    { label: 'Total Tokens Used', value: summary?.totalTokens?.toLocaleString() || '0', icon: '📊' },
-    { label: 'API Keys Active', value: keys.filter((k: any) => k.status === 'ACTIVE').length, icon: '🔑' },
-    { label: 'Total Requests', value: summary?.totalRequests?.toLocaleString() || '0', icon: '📡' },
-    { label: 'Current Plan', value: summary?.plan || 'Free', icon: '💎' },
-  ];
+  const usage = stats?.usage || {};
+  const quotaUsed = usage.tokensUsed || 0;
+  const quotaLimit = usage.tokensLimit || 100000;
+  const quotaPct = Math.min((quotaUsed / quotaLimit) * 100, 100);
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-gray-900">Dashboard Overview</h2>
+    <div>
+      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat) => (
-          <div key={stat.label} className="card">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">{stat.label}</p>
-                <p className="text-2xl font-bold text-gray-900 mt-1">{stat.value}</p>
-              </div>
-              <span className="text-3xl">{stat.icon}</span>
+      {/* Stats Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {[
+          { label: 'Tokens Used Today', value: quotaUsed.toLocaleString(), icon: '📊', color: 'text-[var(--accent)]' },
+          { label: 'Daily Quota', value: `${quotaPct.toFixed(0)}%`, icon: '🎯', color: quotaPct > 80 ? 'text-[var(--error)]' : 'text-[var(--success)]' },
+          { label: 'API Keys', value: usage.activeKeys ?? 0, icon: '🔑', color: 'text-yellow-400' },
+          { label: 'Plan', value: stats?.user?.subscription?.plan?.displayName || 'Free', icon: '💎', color: 'text-purple-400' },
+        ].map((s, i) => (
+          <div key={i} className="card">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-2xl">{s.icon}</span>
+              <span className={`text-2xl font-bold ${s.color}`}>{s.value}</span>
             </div>
+            <div className="text-sm text-[var(--text-secondary)]">{s.label}</div>
           </div>
         ))}
       </div>
 
-      {/* Usage chart placeholder */}
-      <div className="card">
-        <h3 className="text-lg font-semibold mb-4">Usage (Last 30 Days)</h3>
-        <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center text-gray-500">
-          📈 Chart coming soon — integrate recharts
+      {/* Quota Bar */}
+      <div className="card mb-8">
+        <h3 className="font-semibold mb-3">Daily Token Usage</h3>
+        <div className="w-full bg-[var(--bg-secondary)] rounded-full h-3 mb-2">
+          <div className="bg-[var(--accent)] h-3 rounded-full transition-all" style={{ width: `${quotaPct}%` }} />
         </div>
+        <div className="text-sm text-[var(--text-secondary)]">{quotaUsed.toLocaleString()} / {quotaLimit.toLocaleString()} tokens</div>
       </div>
 
-      {/* Recent API Keys */}
+      {/* Quick Actions */}
       <div className="card">
-        <h3 className="text-lg font-semibold mb-4">Recent API Keys</h3>
-        {keys.length === 0 ? (
-          <p className="text-gray-500">No API keys yet. Create one in the API Keys section.</p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Prefix</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {keys.slice(0, 5).map((key: any) => (
-                  <tr key={key.id}>
-                    <td className="px-4 py-2 text-sm">{key.name}</td>
-                    <td className="px-4 py-2 text-sm font-mono">{key.keyPrefix}...</td>
-                    <td className="px-4 py-2 text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${key.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {key.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2 text-sm text-gray-500">{new Date(key.createdAt).toLocaleDateString()}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <h3 className="font-semibold mb-4">Quick Start</h3>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="p-4 bg-[var(--bg-secondary)] rounded-lg">
+            <h4 className="font-medium mb-2">1. Generate API Key</h4>
+            <p className="text-sm text-[var(--text-secondary)] mb-3">Buat API key baru di halaman API Keys</p>
+            <a href="/dashboard/api-keys" className="text-[var(--accent)] text-sm hover:underline">Go to API Keys →</a>
           </div>
-        )}
+          <div className="p-4 bg-[var(--bg-secondary)] rounded-lg">
+            <h4 className="font-medium mb-2">2. Configure Your Tool</h4>
+            <p className="text-sm text-[var(--text-secondary)] mb-3">Set base_url ke https://api.qlens.ai/v1 dan masukkan API key</p>
+            <a href="/dashboard/docs" className="text-[var(--accent)] text-sm hover:underline">View Docs →</a>
+          </div>
+        </div>
       </div>
     </div>
   );

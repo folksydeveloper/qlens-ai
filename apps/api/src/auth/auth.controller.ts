@@ -2,7 +2,7 @@ import { Controller, Post, Body, HttpCode, HttpStatus, Req, UseGuards } from '@n
 import { AuthService } from './auth.service';
 import { Public } from '../common/decorators/public.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { RegisterDto, LoginDto, VerifyEmailDto, RefreshDto } from './dto/auth.dto';
+import { RegisterDto, LoginDto, VerifyEmailDto, RefreshDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -39,5 +39,19 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async logout(@Req() req: any, @Body() dto: RefreshDto) {
     return this.authService.logout(req.user.id, dto.refreshToken);
+  }
+
+  @Public()
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 }

@@ -128,4 +128,35 @@ export class AuthService {
     });
     return { message: 'Logged out successfully' };
   }
+
+  async forgotPassword(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) return { message: 'If the email exists, a reset link has been sent' };
+
+    const resetToken = this.jwtService.sign(
+      { sub: user.id, type: 'password_reset' },
+      { expiresIn: '1h' },
+    );
+    // In production: send email with reset link
+    return { message: 'Password reset link sent', resetToken };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    try {
+      const decoded = this.jwtService.verify(token) as any;
+      if (decoded.type !== 'password_reset') {
+        throw new BadRequestException('Invalid token type');
+      }
+      const passwordHash = await bcrypt.hash(newPassword, 12);
+      await this.prisma.user.update({
+        where: { id: decoded.sub },
+        data: { passwordHash },
+      });
+      // Invalidate all sessions
+      await this.prisma.session.deleteMany({ where: { userId: decoded.sub } });
+      return { message: 'Password reset successfully' };
+    } catch (e) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+  }
 }

@@ -16,7 +16,6 @@
     "@nestjs/jwt": "^10.2.0",
     "@nestjs/passport": "^10.0.3",
     "@nestjs/platform-express": "^10.4.22",
-    "@nestjs/swagger": "^7.3.0",
     "@nestjs/throttler": "^5.2.0",
     "@prisma/client": "^5.22.0",
     "bcrypt": "^5.1.1",
@@ -32,7 +31,10 @@
   "devDependencies": {
     "@nestjs/cli": "^10.4.9",
     "@nestjs/schematics": "^10.2.3",
+    "@nestjs/swagger": "^7.4.2",
     "@nestjs/testing": "^10.4.22",
+    "@swc/cli": "^0.8.1",
+    "@swc/core": "^1.15.43",
     "@types/bcrypt": "^5.0.2",
     "@types/express": "^4.17.25",
     "@types/node": "^20.19.43",
