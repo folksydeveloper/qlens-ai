@@ -5,18 +5,19 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { JwtStrategy } from './jwt.strategy';
 import { UsersModule } from '../users/users.module';
+import { JWT_SECRET, JWT_REFRESH_SECRET } from './jwt.constants';
 
 @Module({
   imports: [
     UsersModule,
-    PassportModule,
+    PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'qlens-jwt-secret-dev',
-      signOptions: { expiresIn: '15m' },
+      secret: JWT_SECRET,
+      signOptions: { expiresIn: '24h' },
     }),
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy],
-  exports: [AuthService],
+  exports: [JwtModule, PassportModule, AuthService],
 })
 export class AuthModule {}

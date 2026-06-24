@@ -12,6 +12,8 @@ import { UsageModule } from './usage/usage.module';
 import { AdminModule } from './admin/admin.module';
 import { AbuseModule } from './abuse/abuse.module';
 import { HealthModule } from './health/health.module';
+import { PlansModule } from './plans/plans.module';
+import { PublicModule } from './public/public.module';
 
 @Module({
   imports: [
@@ -35,6 +37,8 @@ import { HealthModule } from './health/health.module';
     AdminModule,
     AbuseModule,
     HealthModule,
+    PlansModule,
+    PublicModule,
   ],
   providers: [
     {

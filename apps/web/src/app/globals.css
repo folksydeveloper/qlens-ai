@@ -24,26 +24,70 @@ body {
 }
 
 .card {
-  @apply bg-[var(--bg-card)] border border-[var(--border-color)] rounded-xl p-6;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 0.75rem;
+  padding: 1.5rem;
 }
 
 .btn-primary {
-  @apply bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white font-medium px-4 py-2 rounded-lg transition-colors;
+  background: var(--accent);
+  color: white;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+  border: none;
+  cursor: pointer;
+  display: inline-block;
+  text-decoration: none;
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
 }
 
 .btn-secondary {
-  @apply bg-[var(--bg-hover)] hover:bg-[var(--border-color)] text-[var(--text-primary)] font-medium px-4 py-2 rounded-lg transition-colors border border-[var(--border-color)];
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  transition: background-color 0.2s;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  display: inline-block;
+  text-decoration: none;
+}
+
+.btn-secondary:hover {
+  background: var(--border-color);
 }
 
 .input-field {
-  @apply bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg px-4 py-2.5 text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--accent)] w-full;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 0.5rem;
+  padding: 0.625rem 1rem;
+  color: var(--text-primary);
+  width: 100%;
+}
+
+.input-field:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent);
 }
 
 .badge {
-  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.625rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
 }
 
-.badge-success { @apply bg-green-900/30 text-green-400; }
-.badge-warning { @apply bg-yellow-900/30 text-yellow-400; }
-.badge-error { @apply bg-red-900/30 text-red-400; }
-.badge-info { @apply bg-blue-900/30 text-blue-400; }
+.badge-success { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+.badge-warning { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+.badge-error { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+.badge-info { background: rgba(59, 130, 246, 0.2); color: #3b82f6; }

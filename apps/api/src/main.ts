@@ -1,3 +1,27 @@
+import './env';
+import * as fs from 'fs';
+import * as path from 'path';
+
+// Load .env manually BEFORE any module initialization
+const envPath = path.join(__dirname, '../.env');
+if (fs.existsSync(envPath)) {
+  fs.readFileSync(envPath, 'utf-8').split('\n').forEach(line => {
+    line = line.trim();
+    if (line && !line.startsWith('#')) {
+      const eq = line.indexOf('=');
+      if (eq > 0) {
+        const key = line.substring(0, eq).trim();
+        let val = line.substring(eq + 1).trim();
+        // Strip quotes
+        if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
+          val = val.slice(1, -1);
+        }
+        process.env[key] = val;
+      }
+    }
+  });
+}
+
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
