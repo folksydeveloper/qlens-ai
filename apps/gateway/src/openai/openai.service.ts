@@ -4,8 +4,8 @@ import axios from 'axios';
 @Injectable()
 export class OpenAIService {
   private readonly logger = new Logger(OpenAIService.name);
-  private readonly upstreamUrl = process.env.ETHEUM_POOL_URL || 'http://127.0.0.1:1930';
-  private readonly upstreamApiKey = process.env.ETHEUM_POOL_API_KEY || '';
+  private readonly upstreamUrl = process.env.INTERNAL_MODEL_BASE_URL || 'http://127.0.0.1:1930';
+  private readonly upstreamApiKey = process.env.INTERNAL_MODEL_API_KEY || '';
 
   async completion(body: any) {
     const startTime = Date.now();
@@ -16,7 +16,7 @@ export class OpenAIService {
       {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.upstreamApiKey}`,
+          Authorization: `Bearer ${this.upstreamApiKey}`,
         },
         timeout: 120000,
       },
@@ -36,7 +36,7 @@ export class OpenAIService {
       url: `${this.upstreamUrl}/v1/chat/completions`,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.upstreamApiKey}`,
+        Authorization: `Bearer ${this.upstreamApiKey}`,
       },
       data: { ...body, stream: true },
       responseType: 'stream',
@@ -49,11 +49,12 @@ export class OpenAIService {
   async listModels() {
     try {
       const response = await axios.get(`${this.upstreamUrl}/v1/models`, {
-        headers: { 'Authorization': `Bearer ${this.upstreamApiKey}` },
+        headers: { Authorization: `Bearer ${this.upstreamApiKey}` },
         timeout: 5000,
       });
       return response.data?.data || [];
-    } catch {
+    } catch (error: any) {
+      this.logger.warn(`Unable to list upstream models: ${error?.message || 'unknown error'}`);
       return [];
     }
   }
