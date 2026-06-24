@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../common/prisma.service';
 
 @Injectable()
@@ -19,7 +20,9 @@ export class BillingService {
 
   async createTopUp(userId: string, dto: any) {
     const pkg = await this.prisma.topUpPackage.findUnique({ where: { id: dto.packageId } });
-    if (!pkg) throw new NotFoundException('Package not found');
+    if (!pkg || !pkg.enabled) throw new NotFoundException('Package not found');
+
+    const orderId = `qlens_topup_${Date.now()}_${randomUUID().slice(0, 8)}`;
     const payment = await this.prisma.payment.create({
       data: {
         amount: pkg.price,
@@ -27,44 +30,21 @@ export class BillingService {
         tokenAmount: pkg.tokens,
         provider: 'midtrans',
         status: 'PENDING',
-        providerTxId: `pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        providerTxId: orderId,
         user: { connect: { id: userId } },
       },
     });
-    // In production, call Midtrans API to create payment URL
-    return { message: 'Top-up initiated', payment, invoiceUrl: `https://app.sandbox.midtrans.com/snap/v2/vtweb/${payment.id}` };
+
+    // Sandbox/dev URL only. Production must replace this with a server-side Midtrans Snap API call.
+    const invoiceUrl = process.env.MIDTRANS_SNAP_BASE_URL
+      ? `${process.env.MIDTRANS_SNAP_BASE_URL}/${orderId}`
+      : `https://app.sandbox.midtrans.com/snap/v2/vtweb/${orderId}`;
+
+    await this.prisma.payment.update({ where: { id: payment.id }, data: { invoiceUrl } });
+    return { message: 'Top-up initiated', payment: { ...payment, invoiceUrl }, invoiceUrl, orderId };
   }
 
   async getInvoices(userId: string) {
     return this.prisma.payment.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
-  }
-
-  async checkAndDeduct(userId: string, estimatedTokens: number) {
-    return this.prisma.$transaction(async (tx) => {
-      const sub = await tx.subscription.findUnique({ where: { userId }, include: { plan: true } });
-      if (sub && sub.status === 'ACTIVE' && sub.dailyUsed < sub.plan.dailyQuota) {
-        await tx.subscription.update({ where: { userId }, data: { dailyUsed: { increment: estimatedTokens } } });
-        return { source: 'plan_daily', allowed: true };
-      }
-      const balance = await tx.topUpLedger.aggregate({ where: { userId }, _sum: { amount: true } });
-      const available = (balance._sum?.amount) || 0;
-      if (available >= estimatedTokens) {
-        await tx.topUpLedger.create({ data: { userId, amount: -estimatedTokens, balanceAfter: available - estimatedTokens, source: 'usage_deduction', description: `API usage: ${estimatedTokens} tokens` } });
-        return { source: 'topup_balance', allowed: true };
-      }
-      return { source: null, allowed: false };
-    });
-  }
-
-  async finalizeDeduction(userId: string, actualTokens: number, estimatedTokens: number, source: string) {
-    if (actualTokens === estimatedTokens) return;
-    const adjustment = actualTokens - estimatedTokens;
-    if (source === 'plan_daily') {
-      await this.prisma.subscription.update({ where: { userId }, data: { dailyUsed: { increment: adjustment } } });
-    } else if (source === 'topup_balance') {
-      const bal = await this.prisma.topUpLedger.aggregate({ where: { userId }, _sum: { amount: true } });
-      const current = (bal._sum?.amount) || 0;
-      await this.prisma.topUpLedger.create({ data: { userId, amount: -adjustment, balanceAfter: current - adjustment, source: 'usage_deduction', description: `Usage adjustment: ${adjustment} tokens` } });
-    }
   }
 }
